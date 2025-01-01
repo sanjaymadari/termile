@@ -1,12 +1,15 @@
+import 'dart:io';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:dartssh2/dartssh2.dart';
+import 'package:termile/connection_profile.dart';
 import 'package:xterm/xterm.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const MyApp());
@@ -40,6 +43,7 @@ class _SSHTerminalState extends State<SSHTerminal> {
   final _ipController = TextEditingController();
   final _usernameController = TextEditingController();
   final _portController = TextEditingController(text: '22');
+  final _profileNameController = TextEditingController();
   final _terminal = Terminal();
   SSHClient? _client;
   SSHSession? _session;
@@ -48,11 +52,13 @@ class _SSHTerminalState extends State<SSHTerminal> {
   String? _privateKeyPath;
   String? _privateKeyContent;
   String? _publicKeyContent;
+  List<ConnectionProfile> _savedProfiles = [];
 
   @override
   void initState() {
     super.initState();
     _checkExistingKeys();
+    _loadSavedProfiles();
   }
 
   @override
@@ -63,6 +69,140 @@ class _SSHTerminalState extends State<SSHTerminal> {
     _session?.close();
     _client?.close();
     super.dispose();
+  }
+
+  // Load saved connection profiles
+  Future<void> _loadSavedProfiles() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final profilesJson = prefs.getString('connection_profiles');
+      if (profilesJson != null) {
+        final List<dynamic> profiles = jsonDecode(profilesJson);
+        setState(() {
+          _savedProfiles = profiles
+              .map((profile) => ConnectionProfile.fromJson(profile))
+              .toList();
+        });
+      }
+    } catch (e) {
+      _showError('Error loading profiles: $e');
+    }
+  }
+
+  // Save connection profiles
+  Future<void> _saveProfiles() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final profilesJson =
+          jsonEncode(_savedProfiles.map((p) => p.toJson()).toList());
+      await prefs.setString('connection_profiles', profilesJson);
+    } catch (e) {
+      _showError('Error saving profiles: $e');
+    }
+  }
+
+  // Save current connection as profile
+  Future<void> _saveCurrentProfile() async {
+    if (_ipController.text.isEmpty ||
+        _usernameController.text.isEmpty ||
+        _privateKeyPath == null) {
+      _showError('Please fill in all connection details first');
+      return;
+    }
+
+    // Show dialog to enter profile name
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Save Connection Profile'),
+        content: TextField(
+          controller: _profileNameController,
+          decoration: const InputDecoration(
+            labelText: 'Profile Name',
+            hintText: 'e.g., Development Server',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (_profileNameController.text.isEmpty) {
+                _showError('Please enter a profile name');
+                return;
+              }
+
+              final newProfile = ConnectionProfile(
+                name: _profileNameController.text,
+                host: _ipController.text,
+                username: _usernameController.text,
+                port: int.parse(_portController.text),
+                keyPath: _privateKeyPath!,
+              );
+
+              setState(() {
+                _savedProfiles.add(newProfile);
+              });
+              await _saveProfiles();
+              _profileNameController.clear();
+              // ignore: use_build_context_synchronously
+              Navigator.pop(context);
+              _showSuccess('Profile saved successfully');
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Load a saved profile
+  void _loadProfile(ConnectionProfile profile) {
+    setState(() {
+      _ipController.text = profile.host;
+      _usernameController.text = profile.username;
+      _portController.text = profile.port.toString();
+      _privateKeyPath = profile.keyPath;
+    });
+    // Load the key content
+    if (profile.keyPath.isNotEmpty) {
+      File(profile.keyPath).readAsString().then((content) {
+        _privateKeyContent = content;
+      }).catchError((error) {
+        _showError('Error loading key: $error');
+      });
+    }
+  }
+
+  // Delete a saved profile
+  Future<void> _deleteProfile(ConnectionProfile profile) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Profile'),
+        content: Text('Are you sure you want to delete "${profile.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() {
+        _savedProfiles.removeWhere((p) => p.name == profile.name);
+      });
+      await _saveProfiles();
+      _showSuccess('Profile deleted');
+    }
   }
 
   Future<void> _checkExistingKeys() async {
@@ -284,11 +424,60 @@ class _SSHTerminalState extends State<SSHTerminal> {
       body: Column(
         children: [
           if (!_isConnected) ...[
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16.0),
                 children: [
+                  // Saved Profiles Section
+                  if (_savedProfiles.isNotEmpty) ...[
+                    Card(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              'Saved Connections',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _savedProfiles.length,
+                            itemBuilder: (context, index) {
+                              final profile = _savedProfiles[index];
+                              return ListTile(
+                                title: Text(profile.name),
+                                subtitle: Text(
+                                    '${profile.username}@${profile.host}:${profile.port}'),
+                                leading: const Icon(Icons.computer),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () => _deleteProfile(profile),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.play_arrow),
+                                      onPressed: () {
+                                        _loadProfile(profile);
+                                        _connect();
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                onTap: () => _loadProfile(profile),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // SSH Key Management Section
                   Card(
                     child: Padding(
@@ -333,50 +522,78 @@ class _SSHTerminalState extends State<SSHTerminal> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Connection Section
-                  TextField(
-                    controller: _ipController,
-                    decoration: const InputDecoration(
-                      labelText: 'IP Address',
-                      hintText: '1.1.1.1',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Username',
-                      hintText: 'ubuntu',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _portController,
-                    decoration: const InputDecoration(
-                      labelText: 'Port',
-                      hintText: '22',
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _isConnecting ? null : _connect,
-                    child: _isConnecting
-                        ? const Row(
-                            mainAxisSize: MainAxisSize.min,
+
+                  // Connection Form Section
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Connection Details',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _ipController,
+                            decoration: const InputDecoration(
+                              labelText: 'IP Address',
+                              hintText: '1.1.1.1',
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _usernameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Username',
+                              hintText: 'ubuntu',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _portController,
+                            decoration: const InputDecoration(
+                              labelText: 'Port',
+                              hintText: '22',
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
                             children: [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: _isConnecting ? null : _connect,
+                                  child: _isConnecting
+                                      ? const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2),
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text('Connecting...'),
+                                          ],
+                                        )
+                                      : const Text('Connect'),
+                                ),
                               ),
-                              SizedBox(width: 8),
-                              Text('Connecting...'),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: _saveCurrentProfile,
+                                icon: const Icon(Icons.save),
+                                label: const Text('Save Profile'),
+                              ),
                             ],
-                          )
-                        : const Text('Connect'),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
