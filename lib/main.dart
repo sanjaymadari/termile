@@ -410,15 +410,41 @@ class _SSHTerminalState extends State<SSHTerminal> {
       appBar: AppBar(
         title: const Text('SSH Terminal'),
         actions: [
-          if (_isConnected)
+          if (_isConnected) ...[
+            // Previous command button
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_up),
+              tooltip: 'Previous Command',
+              onPressed: () => _session?.write(Uint8List.fromList([27, 91, 65]))
+              // _terminal.write('\x1B[A')
+              ,
+            ),
+            // Next command button
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_down),
+              tooltip: 'Next Command',
+              onPressed: () => _session?.write(Uint8List.fromList([27, 91, 66]))
+              // _terminal.write('\x1B[B')
+              ,
+            ),
+            IconButton(
+              icon: const Icon(Icons.cleaning_services),
+              tooltip: 'Clear Terminal',
+              onPressed: () {
+                // Clear terminal using ANSI escape sequence
+                _terminal.write('\x1B[2J\x1B[H');
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.close),
               onPressed: () {
+                _terminal.write('\x1B[2J\x1B[H');
                 _session?.close();
                 _client?.close();
                 setState(() => _isConnected = false);
               },
             ),
+          ]
         ],
       ),
       body: Column(
