@@ -1,0 +1,3 @@
+Release commands
+- flutter build apk --release
+- cp build/app/outputs/flutter-apk/app-release.apk release/termile-v<version>.apk
