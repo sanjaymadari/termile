@@ -587,6 +587,14 @@ class _SSHTerminalState extends State<SSHTerminal> {
                             keyboardType: TextInputType.number,
                           ),
                           const SizedBox(height: 16),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _importExistingKeys,
+                              icon: const Icon(Icons.file_upload),
+                              label: const Text('Import Keys'),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           Row(
                             children: [
                               Expanded(
