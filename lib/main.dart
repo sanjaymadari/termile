@@ -266,10 +266,10 @@ class _SSHTerminalState extends State<SSHTerminal> {
       final tempFile = File('${directory.path}/id_rsa.pub');
       await tempFile.writeAsString(_publicKeyContent!);
 
-      await Share.shareXFiles(
-        [XFile(tempFile.path)],
+      await SharePlus.instance.share(ShareParams(
         text: 'My SSH public key',
-      );
+        files: [XFile(tempFile.path)],
+      ));
     } catch (e) {
       _showError('Error sharing public key: $e');
     }
@@ -297,10 +297,14 @@ class _SSHTerminalState extends State<SSHTerminal> {
 
       // Save keys to app directory
       final directory = await getApplicationDocumentsDirectory();
-      await File('${directory.path}/id_rsa').writeAsString(privateKey);
-      await File('${directory.path}/id_rsa.pub').writeAsString(publicKey);
 
-      _privateKeyPath = '${directory.path}/id_rsa';
+      final filePath =
+          '${directory.path}/${DateTime.now().millisecondsSinceEpoch}_id_rsa';
+
+      await File(filePath).writeAsString(privateKey);
+      await File('$filePath.pub').writeAsString(publicKey);
+
+      _privateKeyPath = filePath;
       _privateKeyContent = privateKey;
       _publicKeyContent = publicKey;
 
@@ -587,7 +591,9 @@ class _SSHTerminalState extends State<SSHTerminal> {
                             keyboardType: TextInputType.number,
                           ),
                           const SizedBox(height: 16),
-                          Expanded(
+                          SizedBox(
+                            width: double
+                                .infinity, // ensures full-width like Expanded
                             child: ElevatedButton.icon(
                               onPressed: _importExistingKeys,
                               icon: const Icon(Icons.file_upload),
