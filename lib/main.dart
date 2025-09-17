@@ -803,7 +803,7 @@ InRealImplementationUseProperCryptoLibrary
                                 ),
                                 keyboardType: TextInputType.number,
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               TextField(
                                 controller: _usernameController,
                                 decoration: const InputDecoration(
@@ -811,7 +811,7 @@ InRealImplementationUseProperCryptoLibrary
                                   hintText: 'ubuntu',
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               TextField(
                                 controller: _portController,
                                 decoration: const InputDecoration(
@@ -826,10 +826,11 @@ InRealImplementationUseProperCryptoLibrary
                               Card(
                                 color: Colors.grey.shade800,
                                 child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
+                                  padding: const EdgeInsets.only(
+                                      top: 12, bottom: 12),
                                   child: Column(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.center,
                                     children: [
                                       Text(
                                         'Authentication Method',
@@ -838,7 +839,7 @@ InRealImplementationUseProperCryptoLibrary
                                           color: Colors.grey.shade300,
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 5),
                                       Row(
                                         children: [
                                           Expanded(
@@ -855,6 +856,9 @@ InRealImplementationUseProperCryptoLibrary
                                                 });
                                               },
                                               activeColor: Colors.blue,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8),
                                             ),
                                           ),
                                           Expanded(
@@ -874,6 +878,9 @@ InRealImplementationUseProperCryptoLibrary
                                                 });
                                               },
                                               activeColor: Colors.blue,
+                                              contentPadding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8),
                                             ),
                                           ),
                                         ],
@@ -1059,8 +1066,6 @@ InRealImplementationUseProperCryptoLibrary
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green.shade600,
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 12),
                                     ),
                                   ),
                                 ],
