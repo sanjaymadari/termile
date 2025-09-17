@@ -5,6 +5,8 @@ class ConnectionProfile {
   final String username;
   final int port;
   final String keyPath;
+  final bool usePasswordAuth;
+  final String? password; // Note: In production, this should be encrypted
 
   ConnectionProfile({
     required this.name,
@@ -12,6 +14,8 @@ class ConnectionProfile {
     required this.username,
     required this.port,
     required this.keyPath,
+    this.usePasswordAuth = false,
+    this.password,
   });
 
   Map<String, dynamic> toJson() => {
@@ -20,6 +24,8 @@ class ConnectionProfile {
         'username': username,
         'port': port,
         'keyPath': keyPath,
+        'usePasswordAuth': usePasswordAuth,
+        'password': password,
       };
 
   factory ConnectionProfile.fromJson(Map<String, dynamic> json) =>
@@ -29,5 +35,7 @@ class ConnectionProfile {
         username: json['username'],
         port: json['port'],
         keyPath: json['keyPath'],
+        usePasswordAuth: json['usePasswordAuth'] ?? false,
+        password: json['password'],
       );
 }
