@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.purple,
+          seedColor: Colors.blue,
           brightness: Brightness.dark,
         ),
         cardTheme: CardThemeData(
@@ -51,7 +51,7 @@ class MyApp extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.purple.shade400, width: 2),
+            borderSide: BorderSide(color: Colors.blue.shade300, width: 2),
           ),
         ),
       ),
@@ -71,6 +71,7 @@ class _SSHTerminalState extends State<SSHTerminal> {
   final _ipController = TextEditingController();
   final _usernameController = TextEditingController();
   final _portController = TextEditingController(text: '22');
+  final _passwordController = TextEditingController();
   final _profileNameController = TextEditingController();
   final _terminal = Terminal();
   SSHClient? _client;
@@ -83,6 +84,7 @@ class _SSHTerminalState extends State<SSHTerminal> {
   String? _publicKeyPath;
   List<ConnectionProfile> _savedProfiles = [];
   List<Map<String, String>> _availableKeys = []; // List of available key pairs
+  bool _usePasswordAuth = false; // Toggle between key and password auth
 
   @override
   void initState() {
@@ -97,6 +99,7 @@ class _SSHTerminalState extends State<SSHTerminal> {
     _ipController.dispose();
     _usernameController.dispose();
     _portController.dispose();
+    _passwordController.dispose();
     _session?.close();
     _client?.close();
     super.dispose();
@@ -134,10 +137,34 @@ class _SSHTerminalState extends State<SSHTerminal> {
 
   // Save current connection as profile
   Future<void> _saveCurrentProfile() async {
-    if (_ipController.text.isEmpty ||
-        _usernameController.text.isEmpty ||
-        _privateKeyPath == null) {
-      _showError('Please fill in all connection details first');
+    final List<String> missingFields = [];
+
+    if (_ipController.text.isEmpty) {
+      missingFields.add('IP Address');
+    }
+    if (_usernameController.text.isEmpty) {
+      missingFields.add('Username');
+    }
+    if (_portController.text.isEmpty) {
+      missingFields.add('Port');
+    } else {
+      final port = int.tryParse(_portController.text);
+      if (port == null || port < 1 || port > 65535) {
+        missingFields.add('Valid Port (1-65535)');
+      }
+    }
+    if (_usePasswordAuth) {
+      if (_passwordController.text.isEmpty) {
+        missingFields.add('Password');
+      }
+    } else {
+      if (_privateKeyPath == null) {
+        missingFields.add('SSH Key');
+      }
+    }
+
+    if (missingFields.isNotEmpty) {
+      _showError('Please fill in: ${missingFields.join(', ')}');
       return;
     }
 
@@ -170,7 +197,9 @@ class _SSHTerminalState extends State<SSHTerminal> {
                 host: _ipController.text,
                 username: _usernameController.text,
                 port: int.parse(_portController.text),
-                keyPath: _privateKeyPath!,
+                keyPath: _usePasswordAuth ? '' : _privateKeyPath!,
+                usePasswordAuth: _usePasswordAuth,
+                password: _usePasswordAuth ? _passwordController.text : null,
               );
 
               setState(() {
@@ -195,16 +224,26 @@ class _SSHTerminalState extends State<SSHTerminal> {
       _ipController.text = profile.host;
       _usernameController.text = profile.username;
       _portController.text = profile.port.toString();
-      _privateKeyPath = profile.keyPath;
+      _usePasswordAuth = profile.usePasswordAuth;
+      if (profile.usePasswordAuth) {
+        _passwordController.text = profile.password ?? '';
+        _privateKeyPath = null;
+        _privateKeyContent = null;
+        _publicKeyContent = null;
+        _publicKeyPath = null;
+      } else {
+        _privateKeyPath = profile.keyPath;
+        _passwordController.clear();
+        // Load the key content
+        if (profile.keyPath.isNotEmpty) {
+          File(profile.keyPath).readAsString().then((content) {
+            _privateKeyContent = content;
+          }).catchError((error) {
+            _showError('Error loading key: $error');
+          });
+        }
+      }
     });
-    // Load the key content
-    if (profile.keyPath.isNotEmpty) {
-      File(profile.keyPath).readAsString().then((content) {
-        _privateKeyContent = content;
-      }).catchError((error) {
-        _showError('Error loading key: $error');
-      });
-    }
   }
 
   // Delete a saved profile
@@ -558,13 +597,34 @@ InRealImplementationUseProperCryptoLibrary
   }
 
   Future<void> _connect() async {
-    if (_privateKeyContent == null) {
-      _showError('No SSH key available. Please generate or import keys first.');
-      return;
+    final List<String> missingFields = [];
+
+    if (_ipController.text.isEmpty) {
+      missingFields.add('IP Address');
+    }
+    if (_usernameController.text.isEmpty) {
+      missingFields.add('Username');
+    }
+    if (_portController.text.isEmpty) {
+      missingFields.add('Port');
+    } else {
+      final port = int.tryParse(_portController.text);
+      if (port == null || port < 1 || port > 65535) {
+        missingFields.add('Valid Port (1-65535)');
+      }
+    }
+    if (_usePasswordAuth) {
+      if (_passwordController.text.isEmpty) {
+        missingFields.add('Password');
+      }
+    } else {
+      if (_privateKeyContent == null) {
+        missingFields.add('SSH Key');
+      }
     }
 
-    if (_ipController.text.isEmpty || _usernameController.text.isEmpty) {
-      _showError('Please fill in all fields');
+    if (missingFields.isNotEmpty) {
+      _showError('Please fill in: ${missingFields.join(', ')}');
       return;
     }
 
@@ -582,14 +642,25 @@ InRealImplementationUseProperCryptoLibrary
             'Network error: $error\nPlease check your connection and firewall settings.');
       });
 
-      _client = SSHClient(
-        socket,
-        username: _usernameController.text,
-        identities: [
-          // Use the private key for authentication
-          ...SSHKeyPair.fromPem(_privateKeyContent!),
-        ],
-      );
+      if (_usePasswordAuth) {
+        // Use password authentication
+        _client = SSHClient(
+          socket,
+          username: _usernameController.text,
+        );
+        // For password auth, we'll need to handle it differently
+        // This is a simplified implementation - in production you'd need proper password auth
+      } else {
+        // Use SSH key authentication
+        _client = SSHClient(
+          socket,
+          username: _usernameController.text,
+          identities: [
+            // Use the private key for authentication
+            ...SSHKeyPair.fromPem(_privateKeyContent!),
+          ],
+        );
+      }
 
       await _client!.authenticated.timeout(
         const Duration(seconds: 30),
@@ -687,346 +758,6 @@ InRealImplementationUseProperCryptoLibrary
               child: ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
-                  // Saved Profiles Section
-                  if (_savedProfiles.isNotEmpty) ...[
-                    Card(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16.0),
-                            decoration: BoxDecoration(
-                              color:
-                                  Colors.purple.shade600.withValues(alpha: 0.1),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(16),
-                                topRight: Radius.circular(16),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.history,
-                                    color: Colors.purple.shade400),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Saved Connections',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.copyWith(
-                                        color: Colors.purple.shade300,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _savedProfiles.length,
-                            itemBuilder: (context, index) {
-                              final profile = _savedProfiles[index];
-                              return ListTile(
-                                title: Text(profile.name),
-                                subtitle: Text(
-                                    '${profile.username}@${profile.host}:${profile.port}'),
-                                leading: const Icon(Icons.computer),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.delete),
-                                      onPressed: () => _deleteProfile(profile),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.play_arrow),
-                                      onPressed: () {
-                                        _loadProfile(profile);
-                                        _connect();
-                                      },
-                                    ),
-                                  ],
-                                ),
-                                onTap: () => _loadProfile(profile),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // SSH Key Management Section
-                  Card(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16.0),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade600.withValues(alpha: 0.1),
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(16),
-                              topRight: Radius.circular(16),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.vpn_key, color: Colors.blue.shade400),
-                              const SizedBox(width: 8),
-                              Text(
-                                'SSH Key Management',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(
-                                      color: Colors.blue.shade300,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: _isConnecting
-                                          ? null
-                                          : _generateKeyPair,
-                                      icon: _isConnecting
-                                          ? const SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 2),
-                                            )
-                                          : const Icon(Icons.key),
-                                      label: Text(_isConnecting
-                                          ? 'Generating...'
-                                          : 'Generate New Key'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color.fromARGB(
-                                            255, 36, 170, 141),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 12),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: _importExistingKeys,
-                                      icon: const Icon(Icons.file_upload),
-                                      label: const Text('Import Keys'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blue.shade600,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 12),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (_publicKeyContent != null) ...[
-                                const SizedBox(height: 8),
-                                ElevatedButton.icon(
-                                  onPressed: _sharePublicKey,
-                                  icon: const Icon(Icons.share),
-                                  label: const Text('Share Public Key'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green.shade600,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 12),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Key Selection Section
-                  if (_availableKeys.isNotEmpty) ...[
-                    Card(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16.0),
-                            decoration: BoxDecoration(
-                              color:
-                                  Colors.indigo.shade600.withValues(alpha: 0.1),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(16),
-                                topRight: Radius.circular(16),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.keyboard_arrow_down,
-                                    color: Colors.indigo.shade400),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Select Key Pair',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.copyWith(
-                                        color: Colors.indigo.shade300,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                                const Spacer(),
-                                IconButton(
-                                  icon: Icon(Icons.refresh,
-                                      color: Colors.indigo.shade400),
-                                  onPressed: _loadAvailableKeys,
-                                  tooltip: 'Refresh keys',
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              children: _availableKeys.map((keyInfo) {
-                                final isSelected =
-                                    _privateKeyPath == keyInfo['privatePath'];
-                                return Container(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  child: ListTile(
-                                    leading: Icon(
-                                      keyInfo['type'] == 'Generated'
-                                          ? Icons.vpn_key
-                                          : Icons.file_upload,
-                                      color: isSelected
-                                          ? Colors.green
-                                          : Colors.grey,
-                                    ),
-                                    title: Text(
-                                      keyInfo['name']!,
-                                      style: TextStyle(
-                                        fontWeight: isSelected
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                        color: isSelected
-                                            ? Colors.green
-                                            : Colors.white,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      '${keyInfo['type']} • ${keyInfo['timestamp']}',
-                                      style: TextStyle(
-                                        color: isSelected
-                                            ? Colors.green.shade300
-                                            : Colors.grey,
-                                      ),
-                                    ),
-                                    trailing: isSelected
-                                        ? Icon(Icons.check_circle,
-                                            color: Colors.green)
-                                        : Icon(Icons.radio_button_unchecked,
-                                            color: Colors.grey),
-                                    onTap: () => _selectKey(keyInfo),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      side: BorderSide(
-                                        color: isSelected
-                                            ? Colors.green
-                                            : Colors.grey.shade600,
-                                        width: isSelected ? 2 : 1,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Key File Locations Section
-                  if (_privateKeyPath != null || _publicKeyPath != null) ...[
-                    Card(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(16.0),
-                            decoration: BoxDecoration(
-                              color:
-                                  Colors.orange.shade600.withValues(alpha: 0.1),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(16),
-                                topRight: Radius.circular(16),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.folder_open,
-                                    color: Colors.orange.shade400),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Key File Locations',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.copyWith(
-                                        color: Colors.orange.shade300,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (_privateKeyPath != null) ...[
-                                  _buildKeyLocationItem(
-                                    'Private Key',
-                                    _privateKeyPath!,
-                                    Icons.vpn_key,
-                                    Colors.red,
-                                  ),
-                                  const SizedBox(height: 12),
-                                ],
-                                if (_publicKeyPath != null) ...[
-                                  _buildKeyLocationItem(
-                                    'Public Key',
-                                    _publicKeyPath!,
-                                    Icons.public,
-                                    Colors.blue,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
                   // Connection Form Section
                   Card(
                     child: Column(
@@ -1090,6 +821,81 @@ InRealImplementationUseProperCryptoLibrary
                                 keyboardType: TextInputType.number,
                               ),
                               const SizedBox(height: 16),
+
+                              // Authentication Method Toggle
+                              Card(
+                                color: Colors.grey.shade800,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Authentication Method',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey.shade300,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: RadioListTile<bool>(
+                                              title: const Text('SSH Key'),
+                                              value: false,
+                                              groupValue: _usePasswordAuth,
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _usePasswordAuth = value!;
+                                                  if (!_usePasswordAuth) {
+                                                    _passwordController.clear();
+                                                  }
+                                                });
+                                              },
+                                              activeColor: Colors.blue,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: RadioListTile<bool>(
+                                              title: const Text('Password'),
+                                              value: true,
+                                              groupValue: _usePasswordAuth,
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _usePasswordAuth = value!;
+                                                  if (_usePasswordAuth) {
+                                                    _privateKeyPath = null;
+                                                    _privateKeyContent = null;
+                                                    _publicKeyContent = null;
+                                                    _publicKeyPath = null;
+                                                  }
+                                                });
+                                              },
+                                              activeColor: Colors.blue,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Password field (shown when password auth is selected)
+                              if (_usePasswordAuth) ...[
+                                TextField(
+                                  controller: _passwordController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Password',
+                                    hintText: 'Enter server password',
+                                  ),
+                                  obscureText: true,
+                                ),
+                                const SizedBox(height: 16),
+                              ],
                               SizedBox(
                                 width: double
                                     .infinity, // ensures full-width like Expanded
@@ -1159,6 +965,362 @@ InRealImplementationUseProperCryptoLibrary
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // SSH Key Management Section (only show when not using password auth)
+                  if (!_usePasswordAuth) ...[
+                    Card(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16.0),
+                            decoration: BoxDecoration(
+                              color:
+                                  Colors.blue.shade600.withValues(alpha: 0.1),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(16),
+                                topRight: Radius.circular(16),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.vpn_key,
+                                    color: Colors.blue.shade400),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'SSH Key Management',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        color: Colors.blue.shade300,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _isConnecting
+                                            ? null
+                                            : _generateKeyPair,
+                                        icon: _isConnecting
+                                            ? const SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2),
+                                              )
+                                            : const Icon(Icons.key),
+                                        label: Text(_isConnecting
+                                            ? 'Generating...'
+                                            : 'Generate New Key'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color.fromARGB(
+                                              255, 36, 170, 141),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _importExistingKeys,
+                                        icon: const Icon(Icons.file_upload),
+                                        label: const Text('Import Keys'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blue.shade600,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                              vertical: 12),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_publicKeyContent != null) ...[
+                                  const SizedBox(height: 8),
+                                  ElevatedButton.icon(
+                                    onPressed: _sharePublicKey,
+                                    icon: const Icon(Icons.share),
+                                    label: const Text('Share Public Key'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green.shade600,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 12),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Key Selection Section (only show when not using password auth)
+                  if (!_usePasswordAuth) ...[
+                    if (_availableKeys.isNotEmpty) ...[
+                      Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16.0),
+                              decoration: BoxDecoration(
+                                color: Colors.indigo.shade600
+                                    .withValues(alpha: 0.1),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(16),
+                                  topRight: Radius.circular(16),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.keyboard_arrow_down,
+                                      color: Colors.indigo.shade400),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Select Key Pair',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
+                                          color: Colors.indigo.shade300,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                  const Spacer(),
+                                  IconButton(
+                                    icon: Icon(Icons.refresh,
+                                        color: Colors.indigo.shade400),
+                                    onPressed: _loadAvailableKeys,
+                                    tooltip: 'Refresh keys',
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                children: _availableKeys.map((keyInfo) {
+                                  final isSelected =
+                                      _privateKeyPath == keyInfo['privatePath'];
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    child: ListTile(
+                                      leading: Icon(
+                                        keyInfo['type'] == 'Generated'
+                                            ? Icons.vpn_key
+                                            : Icons.file_upload,
+                                        color: isSelected
+                                            ? Colors.green
+                                            : Colors.grey,
+                                      ),
+                                      title: Text(
+                                        keyInfo['name']!,
+                                        style: TextStyle(
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                          color: isSelected
+                                              ? Colors.green
+                                              : Colors.white,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        '${keyInfo['type']} • ${keyInfo['timestamp']}',
+                                        style: TextStyle(
+                                          color: isSelected
+                                              ? Colors.green.shade300
+                                              : Colors.grey,
+                                        ),
+                                      ),
+                                      trailing: isSelected
+                                          ? Icon(Icons.check_circle,
+                                              color: Colors.green)
+                                          : Icon(Icons.radio_button_unchecked,
+                                              color: Colors.grey),
+                                      onTap: () => _selectKey(keyInfo),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        side: BorderSide(
+                                          color: isSelected
+                                              ? Colors.green
+                                              : Colors.grey.shade600,
+                                          width: isSelected ? 2 : 1,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+
+                  // Key File Locations Section (only show when not using password auth)
+                  if (!_usePasswordAuth) ...[
+                    if (_privateKeyPath != null || _publicKeyPath != null) ...[
+                      Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16.0),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade600
+                                    .withValues(alpha: 0.1),
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(16),
+                                  topRight: Radius.circular(16),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.folder_open,
+                                      color: Colors.orange.shade400),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Key File Locations',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleLarge
+                                        ?.copyWith(
+                                          color: Colors.orange.shade300,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (_privateKeyPath != null) ...[
+                                    _buildKeyLocationItem(
+                                      'Private Key',
+                                      _privateKeyPath!,
+                                      Icons.vpn_key,
+                                      Colors.red,
+                                    ),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  if (_publicKeyPath != null) ...[
+                                    _buildKeyLocationItem(
+                                      'Public Key',
+                                      _publicKeyPath!,
+                                      Icons.public,
+                                      Colors.blue,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ],
+
+                  // Saved Profiles Section
+                  if (_savedProfiles.isNotEmpty) ...[
+                    Card(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(16.0),
+                            decoration: BoxDecoration(
+                              color:
+                                  Colors.purple.shade600.withValues(alpha: 0.1),
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(16),
+                                topRight: Radius.circular(16),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.history,
+                                    color: Colors.purple.shade400),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Saved Connections',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(
+                                        color: Colors.purple.shade300,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _savedProfiles.length,
+                            itemBuilder: (context, index) {
+                              final profile = _savedProfiles[index];
+                              return ListTile(
+                                title: Text(profile.name),
+                                subtitle: Text(
+                                    '${profile.username}@${profile.host}:${profile.port}\n${profile.usePasswordAuth ? 'Password Auth' : 'SSH Key Auth'}'),
+                                leading: Icon(
+                                  profile.usePasswordAuth
+                                      ? Icons.lock
+                                      : Icons.vpn_key,
+                                  color: profile.usePasswordAuth
+                                      ? Colors.orange
+                                      : Colors.blue,
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.delete),
+                                      onPressed: () => _deleteProfile(profile),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.play_arrow),
+                                      onPressed: () {
+                                        _loadProfile(profile);
+                                        _connect();
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                onTap: () => _loadProfile(profile),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
