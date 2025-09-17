@@ -811,9 +811,10 @@ InRealImplementationUseProperCryptoLibrary
                                           : const Icon(Icons.key),
                                       label: Text(_isConnecting
                                           ? 'Generating...'
-                                          : 'Generate New Keys'),
+                                          : 'Generate New Key'),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.purple.shade600,
+                                        backgroundColor: const Color.fromARGB(
+                                            255, 36, 170, 141),
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
                                             vertical: 12),
@@ -1097,7 +1098,7 @@ InRealImplementationUseProperCryptoLibrary
                                   icon: const Icon(Icons.file_upload),
                                   label: const Text('Import Keys'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange.shade600,
+                                    backgroundColor: Colors.blue,
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 12),
@@ -1137,15 +1138,17 @@ InRealImplementationUseProperCryptoLibrary
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  ElevatedButton.icon(
-                                    onPressed: _saveCurrentProfile,
-                                    icon: const Icon(Icons.save),
-                                    label: const Text('Save Profile'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.purple.shade600,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 16),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: _saveCurrentProfile,
+                                      icon: const Icon(Icons.save),
+                                      label: const Text('Save Profile'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blueGrey,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 16),
+                                      ),
                                     ),
                                   ),
                                 ],
