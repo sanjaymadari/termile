@@ -936,7 +936,7 @@ class _SSHTerminalState extends State<SSHTerminal> {
                                     child: ElevatedButton.icon(
                                       onPressed: _importExistingKeys,
                                       icon: const Icon(Icons.file_upload),
-                                      label: const Text('Import Keys'),
+                                      label: const Text('Import Private Key'),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blue,
                                         foregroundColor: Colors.white,
@@ -1360,8 +1360,91 @@ class _SSHTerminalState extends State<SSHTerminal> {
                                   );
                                 },
                               ),
-                            // if (_savedProfiles.isEmpty)
-                            //   Text('No saved profiles'),
+                            if (_savedProfiles.isEmpty)
+                              Container(
+                                margin: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(24),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade800.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color:
+                                        Colors.grey.shade600.withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.cloud_off_outlined,
+                                      size: 64,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No Saved Connections',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .headlineSmall
+                                          ?.copyWith(
+                                            color: Colors.grey.shade300,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Save your SSH connections for quick access.\nCreate a new connection to get started.',
+                                      textAlign: TextAlign.center,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: Colors.grey.shade400,
+                                            height: 1.4,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    // Container(
+                                    //   padding: const EdgeInsets.symmetric(
+                                    //     horizontal: 12,
+                                    //     vertical: 8,
+                                    //   ),
+                                    //   decoration: BoxDecoration(
+                                    //     color: Colors.blue.shade900
+                                    //         .withOpacity(0.3),
+                                    //     borderRadius: BorderRadius.circular(8),
+                                    //     border: Border.all(
+                                    //       color: Colors.blue.shade700
+                                    //           .withOpacity(0.5),
+                                    //       width: 1,
+                                    //     ),
+                                    //   ),
+                                    //   child: Row(
+                                    //     mainAxisSize: MainAxisSize.min,
+                                    //     children: [
+                                    //       Icon(
+                                    //         Icons.info_outline,
+                                    //         size: 16,
+                                    //         color: Colors.blue.shade300,
+                                    //       ),
+                                    //       const SizedBox(width: 8),
+                                    //       Text(
+                                    //         'Tip: Use the form above to create your first connection',
+                                    //         style: Theme.of(context)
+                                    //             .textTheme
+                                    //             .bodySmall
+                                    //             ?.copyWith(
+                                    //               color: Colors.blue.shade200,
+                                    //               fontSize: 12,
+                                    //             ),
+                                    //       ),
+                                    //     ],
+                                    //   ),
+                                    // ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),
