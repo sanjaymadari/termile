@@ -87,10 +87,6 @@ A modern SSH terminal emulator built with Flutter for mobile devices. Termile pr
 - All connections use standard SSH protocols
 - No data is transmitted to external servers
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
 ## Version History
 
 - **v1.0.3+4**: Current version with SSH key management and connection profiles
