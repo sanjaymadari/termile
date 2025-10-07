@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:termile/connection_profile.dart';
+import 'package:termile/widgets/custom_app_bar.dart';
 import 'package:xterm/xterm.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
-// import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
@@ -715,64 +715,9 @@ class _SSHTerminalState extends State<SSHTerminal> {
       focusNode: FocusNode(),
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'SSH Terminal',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-            ),
-          ),
-          backgroundColor: Colors.grey.shade900,
-          elevation: 0,
-          actions: [
-            if (_isConnected) ...[
-              // Stop Command button (Ctrl+C)
-              IconButton(
-                icon: const Icon(Icons.stop),
-                tooltip: 'Stop Command (Ctrl+C)',
-                onPressed: () {
-                  // Send Ctrl+C signal (ASCII 3)
-                  _session?.write(Uint8List.fromList([3]));
-                },
-              ),
-              // Previous command button
-              IconButton(
-                icon: const Icon(Icons.keyboard_arrow_up),
-                tooltip: 'Previous Command',
-                onPressed: () =>
-                    _session?.write(Uint8List.fromList([27, 91, 65]))
-                // _terminal.write('\x1B[A')
-                ,
-              ),
-              // Next command button
-              IconButton(
-                icon: const Icon(Icons.keyboard_arrow_down),
-                tooltip: 'Next Command',
-                onPressed: () =>
-                    _session?.write(Uint8List.fromList([27, 91, 66]))
-                // _terminal.write('\x1B[B')
-                ,
-              ),
-              IconButton(
-                icon: const Icon(Icons.cleaning_services),
-                tooltip: 'Clear Terminal',
-                onPressed: () {
-                  // Clear terminal using ANSI escape sequence
-                  _terminal.write('\x1B[2J\x1B[H');
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () {
-                  _terminal.write('\x1B[2J\x1B[H');
-                  _session?.close();
-                  _client?.close();
-                  setState(() => _isConnected = false);
-                },
-              ),
-            ]
-          ],
+        appBar: CustomAppBar(
+          title: 'SSH Terminal',
+          isHomeScreen: true,
         ),
         backgroundColor: Colors.grey.shade800,
         body: Column(
@@ -1465,56 +1410,133 @@ class _SSHTerminalState extends State<SSHTerminal> {
                       //   fontFamily: 'Courier',
                       // ),
                     ),
-                    // Floating action buttons for terminal shortcuts
+                    // Terminal control buttons
                     Positioned(
-                      bottom: 16,
-                      right: 16,
-                      child: Column(
+                      top: 8,
+                      right: 8,
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Ctrl+D button
-                          FloatingActionButton(
-                            mini: true,
-                            heroTag: "ctrl_d",
-                            onPressed: () {
-                              // Send Ctrl+D signal (ASCII 4)
-                              _session?.write(Uint8List.fromList([4]));
-                            },
-                            tooltip: 'Ctrl+D (EOF)',
-                            child: const Text('D',
-                                style: TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 8),
-                          // Ctrl+Z button
-                          FloatingActionButton(
-                            mini: true,
-                            heroTag: "ctrl_z",
-                            onPressed: () {
-                              // Send Ctrl+Z signal (ASCII 26)
-                              _session?.write(Uint8List.fromList([26]));
-                            },
-                            tooltip: 'Ctrl+Z (Suspend)',
-                            child: const Text('Z',
-                                style: TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 8),
-                          // Ctrl+C button (Stop Command)
-                          FloatingActionButton(
-                            mini: true,
-                            heroTag: "ctrl_c",
+                          // Stop Command button (Ctrl+C)
+                          IconButton(
+                            icon: const Icon(Icons.stop),
+                            tooltip: 'Stop Command (Ctrl+C)',
                             onPressed: () {
                               // Send Ctrl+C signal (ASCII 3)
                               _session?.write(Uint8List.fromList([3]));
                             },
-                            tooltip: 'Ctrl+C (Stop Command)',
-                            backgroundColor: Colors.red.shade600,
-                            child: const Icon(Icons.stop, size: 16),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          // Previous command button
+                          IconButton(
+                            icon: const Icon(Icons.keyboard_arrow_up),
+                            tooltip: 'Previous Command',
+                            onPressed: () => _session
+                                ?.write(Uint8List.fromList([27, 91, 65])),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          // Next command button
+                          IconButton(
+                            icon: const Icon(Icons.keyboard_arrow_down),
+                            tooltip: 'Next Command',
+                            onPressed: () => _session
+                                ?.write(Uint8List.fromList([27, 91, 66])),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          // Clear terminal button
+                          IconButton(
+                            icon: const Icon(Icons.cleaning_services),
+                            tooltip: 'Clear Terminal',
+                            onPressed: () {
+                              // Clear terminal using ANSI escape sequence
+                              _terminal.write('\x1B[2J\x1B[H');
+                            },
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.orange.shade600,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          // Disconnect button
+                          IconButton(
+                            icon: const Icon(Icons.logout),
+                            tooltip: 'Disconnect',
+                            onPressed: () {
+                              _terminal.write('\x1B[2J\x1B[H');
+                              _session?.close();
+                              _client?.close();
+                              setState(() => _isConnected = false);
+                            },
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    // Floating action buttons for terminal shortcuts
+                    // Positioned(
+                    //   bottom: 16,
+                    //   right: 16,
+                    //   child: Column(
+                    //     mainAxisSize: MainAxisSize.min,
+                    //     children: [
+                    //       // Ctrl+D button
+                    //       FloatingActionButton(
+                    //         mini: true,
+                    //         heroTag: "ctrl_d",
+                    //         onPressed: () {
+                    //           // Send Ctrl+D signal (ASCII 4)
+                    //           _session?.write(Uint8List.fromList([4]));
+                    //         },
+                    //         tooltip: 'Ctrl+D (EOF)',
+                    //         child: const Text('D',
+                    //             style: TextStyle(
+                    //                 fontSize: 12, fontWeight: FontWeight.bold)),
+                    //       ),
+                    //       const SizedBox(height: 8),
+                    //       // Ctrl+Z button
+                    //       FloatingActionButton(
+                    //         mini: true,
+                    //         heroTag: "ctrl_z",
+                    //         onPressed: () {
+                    //           // Send Ctrl+Z signal (ASCII 26)
+                    //           _session?.write(Uint8List.fromList([26]));
+                    //         },
+                    //         tooltip: 'Ctrl+Z (Suspend)',
+                    //         child: const Text('Z',
+                    //             style: TextStyle(
+                    //                 fontSize: 12, fontWeight: FontWeight.bold)),
+                    //       ),
+                    //       const SizedBox(height: 8),
+                    //       // Ctrl+C button (Stop Command)
+                    //       FloatingActionButton(
+                    //         mini: true,
+                    //         heroTag: "ctrl_c",
+                    //         onPressed: () {
+                    //           // Send Ctrl+C signal (ASCII 3)
+                    //           _session?.write(Uint8List.fromList([3]));
+                    //         },
+                    //         tooltip: 'Ctrl+C (Stop Command)',
+                    //         backgroundColor: Colors.red.shade600,
+                    //         child: const Icon(Icons.stop, size: 16),
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
