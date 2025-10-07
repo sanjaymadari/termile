@@ -176,7 +176,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   void _giveFeedback() {
     launchUrl(
       Uri.parse(
-          'https://www.varnastechsolutions.com/traintogo/feedback?app=termile'),
+          'https://www.varnastechsolutions.com/termile/feedback?app=termile'),
     );
   }
 
