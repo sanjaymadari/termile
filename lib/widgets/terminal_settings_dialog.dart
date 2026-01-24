@@ -35,11 +35,18 @@ class TerminalSettingsDialog extends StatefulWidget {
 
 class _TerminalSettingsDialogState extends State<TerminalSettingsDialog> {
   late TerminalSettings _settings;
+  final TextEditingController _keyController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _settings = widget.settings.copyWith();
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    super.dispose();
   }
 
   void _updateSettings(TerminalSettings newSettings) {
@@ -104,6 +111,9 @@ class _TerminalSettingsDialogState extends State<TerminalSettingsDialog> {
                     _buildThemeSection(),
                     const SizedBox(height: 24),
                     _buildToggleSection(),
+                    const SizedBox(height: 24),
+                    _buildExtraKeysSection(),
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),
@@ -411,6 +421,93 @@ class _TerminalSettingsDialogState extends State<TerminalSettingsDialog> {
         onChanged: onChanged,
         activeTrackColor: Colors.blue.shade400,
       ),
+    );
+  }
+
+  Widget _buildExtraKeysSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Additional Keys', Icons.keyboard_alt),
+        const SizedBox(height: 12),
+        Text(
+          'Customize symbols and special keys show in the extra row',
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade800,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _settings.extraKeys.map((key) {
+                  return InputChip(
+                    label: Text(key),
+                    onDeleted: () {
+                      final newKeys = List<String>.from(_settings.extraKeys);
+                      newKeys.remove(key);
+                      _updateSettings(_settings.copyWith(extraKeys: newKeys));
+                    },
+                    backgroundColor: Colors.grey.shade700,
+                    deleteIconColor: Colors.red.shade300,
+                    labelStyle:
+                        const TextStyle(color: Colors.white, fontSize: 12),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _keyController,
+                      decoration: InputDecoration(
+                        hintText: 'Add new key (e.g., @, #, F1)',
+                        hintStyle: TextStyle(color: Colors.grey.shade600),
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      if (_keyController.text.isNotEmpty) {
+                        final newKeys = List<String>.from(_settings.extraKeys);
+                        newKeys.add(_keyController.text.trim());
+                        _updateSettings(_settings.copyWith(extraKeys: newKeys));
+                        _keyController.clear();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Icon(Icons.add),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Available special labels: ESC, CTRL, ALT, TAB, UP, DOWN, LEFT, RIGHT',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

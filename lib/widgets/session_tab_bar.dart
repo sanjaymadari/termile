@@ -69,75 +69,88 @@ class SessionTabBar extends StatelessWidget {
             topLeft: Radius.circular(8),
             topRight: Radius.circular(8),
           ),
-          border: Border(
-            top: BorderSide(
-              color: isActive ? Colors.blue.shade400 : Colors.transparent,
-              width: 2,
-            ),
-            left: BorderSide(
-              color: isActive ? Colors.grey.shade600 : Colors.transparent,
-              width: 1,
-            ),
-            right: BorderSide(
-              color: isActive ? Colors.grey.shade600 : Colors.transparent,
-              width: 1,
-            ),
+          border: Border.all(
+            color: isActive ? Colors.grey.shade600 : Colors.transparent,
+            width: 1,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            const SizedBox(width: 12),
-            // Connection status indicator
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: _getStatusColor(session),
-                shape: BoxShape.circle,
-                boxShadow: session.isConnected
-                    ? [
-                        BoxShadow(
-                          color: Colors.green.withValues(alpha: 0.5),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : null,
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Tab title
-            Flexible(
-              child: Text(
-                session.displayName,
-                style: TextStyle(
-                  color: isActive ? Colors.white : Colors.grey.shade400,
-                  fontSize: 12,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 4),
-            // Close button
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onTabClosed(index),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.close,
-                    size: 14,
-                    color:
-                        isActive ? Colors.grey.shade300 : Colors.grey.shade500,
+            if (isActive)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade400,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8),
+                      topRight: Radius.circular(8),
+                    ),
                   ),
                 ),
               ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  // Connection status indicator
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(session),
+                      shape: BoxShape.circle,
+                      boxShadow: session.isConnected
+                          ? [
+                              BoxShadow(
+                                color: Colors.green.withValues(alpha: 0.5),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Tab title
+                  Flexible(
+                    child: Text(
+                      session.displayName,
+                      style: TextStyle(
+                        color: isActive ? Colors.white : Colors.grey.shade400,
+                        fontSize: 12,
+                        fontWeight:
+                            isActive ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Close button
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => onTabClosed(index),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close,
+                          size: 14,
+                          color: isActive
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: 4),
           ],
         ),
       ),

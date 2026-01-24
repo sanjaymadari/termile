@@ -152,7 +152,13 @@ Choose from 8 beautiful pre-built terminal themes:
 
 ## Version History
 
-- **v1.0.5+5**: Added Termux-inspired features:
+- **v1.0.6+6**: Added Phase 2: File & Transfer Features:
+  - SFTP File Browser: Full remote file management
+  - File Upload/Download: Seamless file transfers between local and remote
+  - Text File Viewer/Editor: Quick edits on remote files
+  - SSH Key Selection: New visual dropdown for managing available keys
+  - Customizable Extra Keys: Add and remove keys in the extra row
+- **v1.0.5+5**: Added Phase 1: Core Terminal Enhancements:
   - Multi-session tabs
   - Extra keys row (ESC, CTRL, ALT, TAB, arrows)
   - Copy/paste support with context menu

@@ -10,6 +10,7 @@ class TerminalSettings {
   bool bellEnabled;
   int scrollbackLines;
   String fontFamily;
+  List<String> extraKeys;
 
   TerminalSettings({
     this.fontSize = 14.0,
@@ -19,6 +20,21 @@ class TerminalSettings {
     this.bellEnabled = true,
     this.scrollbackLines = 10000,
     this.fontFamily = 'monospace',
+    this.extraKeys = const [
+      'ESC',
+      'CTRL',
+      'ALT',
+      'TAB',
+      '|',
+      '/',
+      '~',
+      '-',
+      '_',
+      'UP',
+      'LEFT',
+      'DOWN',
+      'RIGHT',
+    ],
   });
 
   /// Minimum font size
@@ -39,6 +55,7 @@ class TerminalSettings {
     bool? bellEnabled,
     int? scrollbackLines,
     String? fontFamily,
+    List<String>? extraKeys,
   }) {
     return TerminalSettings(
       fontSize: fontSize ?? this.fontSize,
@@ -48,6 +65,7 @@ class TerminalSettings {
       bellEnabled: bellEnabled ?? this.bellEnabled,
       scrollbackLines: scrollbackLines ?? this.scrollbackLines,
       fontFamily: fontFamily ?? this.fontFamily,
+      extraKeys: extraKeys ?? this.extraKeys,
     );
   }
 
@@ -61,6 +79,7 @@ class TerminalSettings {
       'bellEnabled': bellEnabled,
       'scrollbackLines': scrollbackLines,
       'fontFamily': fontFamily,
+      'extraKeys': extraKeys,
     };
   }
 
@@ -74,6 +93,24 @@ class TerminalSettings {
       bellEnabled: json['bellEnabled'] as bool? ?? true,
       scrollbackLines: json['scrollbackLines'] as int? ?? 10000,
       fontFamily: json['fontFamily'] as String? ?? 'monospace',
+      extraKeys: (json['extraKeys'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [
+            'ESC',
+            'CTRL',
+            'ALT',
+            'TAB',
+            '|',
+            '/',
+            '~',
+            '-',
+            '_',
+            'UP',
+            'LEFT',
+            'DOWN',
+            'RIGHT',
+          ],
     );
   }
 

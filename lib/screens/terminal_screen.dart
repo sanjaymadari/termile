@@ -12,11 +12,14 @@ import '../models/ssh_session.dart';
 import '../models/terminal_theme.dart';
 import '../models/terminal_settings.dart';
 import '../connection_profile.dart';
+import '../services/sftp_service.dart';
 import '../widgets/extra_keys_row.dart';
 import '../widgets/session_tab_bar.dart';
 import '../widgets/terminal_view.dart';
 import '../widgets/terminal_settings_dialog.dart';
 import '../widgets/custom_app_bar.dart';
+import '../widgets/ssh_key_dropdown.dart';
+import 'sftp_browser_screen.dart';
 
 /// Main terminal screen with multi-session support and Termux-like features
 class TerminalScreen extends StatefulWidget {
@@ -222,22 +225,18 @@ class _TerminalScreenState extends State<TerminalScreen>
         timeout: const Duration(seconds: 30),
       ).catchError((error) {
         throw Exception(
-            'Network error: $error\nPlease check your connection and firewall settings.');
+          'Network error: $error\nPlease check your connection and firewall settings.',
+        );
       });
 
       SSHClient client;
       if (_usePasswordAuth) {
-        client = SSHClient(
-          socket,
-          username: _usernameController.text,
-        );
+        client = SSHClient(socket, username: _usernameController.text);
       } else {
         client = SSHClient(
           socket,
           username: _usernameController.text,
-          identities: [
-            ...SSHKeyPair.fromPem(_privateKeyContent!),
-          ],
+          identities: [...SSHKeyPair.fromPem(_privateKeyContent!)],
         );
       }
 
@@ -247,10 +246,7 @@ class _TerminalScreenState extends State<TerminalScreen>
       );
 
       final sshSession = await client.shell(
-        pty: SSHPtyConfig(
-          width: 80,
-          height: session.terminal.viewHeight,
-        ),
+        pty: SSHPtyConfig(width: 80, height: session.terminal.viewHeight),
       );
 
       // Setup terminal I/O
@@ -376,6 +372,55 @@ class _TerminalScreenState extends State<TerminalScreen>
     session!.session!.write(Uint8List.fromList(key.codeUnits));
   }
 
+  // ==================== SFTP Browser ====================
+
+  Future<void> _openSftpBrowser(SSHSessionModel session) async {
+    if (session.client == null) {
+      _showError('Not connected to server');
+      return;
+    }
+
+    try {
+      _showLoadingDialog('Opening file browser...');
+
+      final sftp = await session.client!.sftp();
+      final sftpService = SftpService(sftp);
+
+      if (mounted) Navigator.pop(context); // Close loading dialog
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SftpBrowserScreen(
+              sftp: sftpService,
+              initialPath: '/home/${session.username}',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Close loading dialog
+      _showError('Failed to open file browser: $e');
+    }
+  }
+
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
+  }
+
   // ==================== Profile Management ====================
 
   Future<void> _loadSavedProfiles() async {
@@ -398,8 +443,9 @@ class _TerminalScreenState extends State<TerminalScreen>
   Future<void> _saveProfiles() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final profilesJson =
-          jsonEncode(_savedProfiles.map((p) => p.toJson()).toList());
+      final profilesJson = jsonEncode(
+        _savedProfiles.map((p) => p.toJson()).toList(),
+      );
       await prefs.setString('connection_profiles', profilesJson);
     } catch (e) {
       _showError('Error saving profiles: $e');
@@ -540,11 +586,13 @@ class _TerminalScreenState extends State<TerminalScreen>
       if (await keysDir.exists()) {
         final files = await keysDir.list().toList();
         final privateKeyFiles = files
-            .where((file) =>
-                file is File &&
-                !file.path.endsWith('.pub') &&
-                (file.path.contains('id_rsa') ||
-                    file.path.contains('imported')))
+            .where(
+              (file) =>
+                  file is File &&
+                  !file.path.endsWith('.pub') &&
+                  (file.path.contains('id_rsa') ||
+                      file.path.contains('imported')),
+            )
             .cast<File>()
             .toList();
 
@@ -573,11 +621,13 @@ class _TerminalScreenState extends State<TerminalScreen>
       if (await keysDir.exists()) {
         final files = await keysDir.list().toList();
         final privateKeyFiles = files
-            .where((file) =>
-                file is File &&
-                !file.path.endsWith('.pub') &&
-                (file.path.contains('id_rsa') ||
-                    file.path.contains('imported')))
+            .where(
+              (file) =>
+                  file is File &&
+                  !file.path.endsWith('.pub') &&
+                  (file.path.contains('id_rsa') ||
+                      file.path.contains('imported')),
+            )
             .cast<File>()
             .toList();
 
@@ -603,8 +653,9 @@ class _TerminalScreenState extends State<TerminalScreen>
           }
         }
 
-        availableKeys
-            .sort((a, b) => b['timestamp']!.compareTo(a['timestamp']!));
+        availableKeys.sort(
+          (a, b) => b['timestamp']!.compareTo(a['timestamp']!),
+        );
 
         setState(() {
           _availableKeys = availableKeys;
@@ -622,8 +673,9 @@ class _TerminalScreenState extends State<TerminalScreen>
       );
       if (privateResult == null) return;
 
-      final privateKey =
-          await File(privateResult.files.single.path!).readAsString();
+      final privateKey = await File(
+        privateResult.files.single.path!,
+      ).readAsString();
 
       if (!privateKey.contains('BEGIN') ||
           !privateKey.contains('PRIVATE KEY')) {
@@ -755,11 +807,11 @@ class _TerminalScreenState extends State<TerminalScreen>
           // Extra keys row
           if (_settings.showExtraKeys && _currentSession?.isConnected == true)
             ExtraKeysRow(
+              keys: _settings.extraKeys,
               onKeyPress: _sendKey,
               onControlKey: _sendControlKey,
               onEscape: _sendEscape,
               onTab: _sendTab,
-              onCtrlC: _sendCtrlC,
               onArrowUp: _sendArrowUp,
               onArrowDown: _sendArrowDown,
               onArrowLeft: _sendArrowLeft,
@@ -803,34 +855,58 @@ class _TerminalScreenState extends State<TerminalScreen>
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                session.displayName,
-                style: TextStyle(
-                  color: Colors.grey.shade300,
-                  fontWeight: FontWeight.w500,
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        session.displayName,
+                        style: TextStyle(
+                          color: Colors.grey.shade300,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (session.connectedAt != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        session.connectionDuration,
+                        style: TextStyle(
+                          color: Colors.grey.shade500,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              const Spacer(),
-              if (session.connectedAt != null)
-                Text(
-                  session.connectionDuration,
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 12,
-                  ),
-                ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
+              // SFTP File Browser
+              IconButton(
+                icon: const Icon(Icons.folder, size: 20),
+                onPressed: () => _openSftpBrowser(session),
+                tooltip: 'File Browser',
+                color: Colors.blue.shade400,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
               // Terminal actions
               IconButton(
-                icon: const Icon(Icons.clear_all, size: 20),
-                onPressed: () => session.terminal.buffer.clear(),
+                icon: const Icon(Icons.delete_sweep_rounded, size: 20),
+                onPressed: () {
+                  // Use ANSI escape sequence to clear terminal and reset cursor
+                  // \x1b[2J - Clear screen
+                  // \x1b[H  - Move cursor to home (top-left)
+                  session.terminal.write('\x1b[2J\x1b[H');
+                },
                 tooltip: 'Clear terminal',
                 color: Colors.grey.shade400,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.stop, size: 20),
                 onPressed: _sendCtrlC,
@@ -839,7 +915,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.logout, size: 20),
                 onPressed: _disconnect,
@@ -951,46 +1027,11 @@ class _TerminalScreenState extends State<TerminalScreen>
                   obscureText: true,
                 )
               else
-                Column(
-                  children: [
-                    if (_privateKeyPath != null)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade900.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.shade700),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.check_circle,
-                                color: Colors.green.shade400),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Key: ${_privateKeyPath!.split('/').last}',
-                                style: TextStyle(color: Colors.green.shade300),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _importExistingKeys,
-                        icon: const Icon(Icons.upload_file),
-                        label: Text(_privateKeyPath == null
-                            ? 'Import SSH Key'
-                            : 'Change Key'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
+                SshKeyDropdown(
+                  availableKeys: _availableKeys,
+                  selectedKeyPath: _privateKeyPath,
+                  onKeySelected: (keyInfo) => _selectKey(keyInfo),
+                  onImportKey: _importExistingKeys,
                 ),
             ],
           ),
@@ -1089,10 +1130,7 @@ class _TerminalScreenState extends State<TerminalScreen>
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: child,
-          ),
+          Padding(padding: const EdgeInsets.all(16), child: child),
         ],
       ),
     );
@@ -1153,10 +1191,7 @@ class _TerminalScreenState extends State<TerminalScreen>
             size: 20,
           ),
         ),
-        title: Text(
-          profile.name,
-          style: const TextStyle(color: Colors.white),
-        ),
+        title: Text(profile.name, style: const TextStyle(color: Colors.white)),
         subtitle: Text(
           '${profile.username}@${profile.host}:${profile.port}',
           style: TextStyle(color: Colors.grey.shade500),

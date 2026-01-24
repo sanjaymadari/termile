@@ -3,9 +3,9 @@ import 'package:flutter/services.dart';
 
 /// Termux-style extra keys row for terminal
 class ExtraKeysRow extends StatelessWidget {
+  final List<String> keys;
   final Function(String) onKeyPress;
   final Function(int) onControlKey;
-  final VoidCallback? onCtrlC;
   final VoidCallback? onTab;
   final VoidCallback? onEscape;
   final VoidCallback? onArrowUp;
@@ -16,9 +16,9 @@ class ExtraKeysRow extends StatelessWidget {
 
   const ExtraKeysRow({
     super.key,
+    required this.keys,
     required this.onKeyPress,
     required this.onControlKey,
-    this.onCtrlC,
     this.onTab,
     this.onEscape,
     this.onArrowUp,
@@ -35,6 +35,37 @@ class ExtraKeysRow extends StatelessWidget {
     action?.call();
   }
 
+  void _handleKey(String key) {
+    switch (key.toUpperCase()) {
+      case 'ESC':
+        _onTap(onEscape);
+        break;
+      case 'CTRL':
+        _onTap(() => onControlKey(17));
+        break;
+      case 'ALT':
+        _onTap(() => onControlKey(18));
+        break;
+      case 'TAB':
+        _onTap(onTab);
+        break;
+      case 'UP':
+        _onTap(onArrowUp);
+        break;
+      case 'DOWN':
+        _onTap(onArrowDown);
+        break;
+      case 'LEFT':
+        _onTap(onArrowLeft);
+        break;
+      case 'RIGHT':
+        _onTap(onArrowRight);
+        break;
+      default:
+        _onTap(() => onKeyPress(key));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -47,60 +78,15 @@ class ExtraKeysRow extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Main extra keys row
           SizedBox(
-            height: 44,
-            child: Row(
-              children: [
-                _buildKey(
-                  'ESC',
-                  onTap: () => _onTap(onEscape),
-                  color: Colors.orange.shade700,
-                ),
-                _buildKey(
-                  'CTRL',
-                  onTap: () => _onTap(() => onControlKey(17)), // Ctrl key code
-                  color: Colors.blue.shade700,
-                ),
-                _buildKey(
-                  'ALT',
-                  onTap: () => _onTap(() => onControlKey(18)), // Alt key code
-                  color: Colors.purple.shade700,
-                ),
-                _buildKey(
-                  'TAB',
-                  onTap: () => _onTap(onTab),
-                  color: Colors.teal.shade700,
-                ),
-                _buildDivider(),
-                _buildArrowKey(Icons.keyboard_arrow_up,
-                    onTap: () => _onTap(onArrowUp)),
-                _buildArrowKey(Icons.keyboard_arrow_down,
-                    onTap: () => _onTap(onArrowDown)),
-                _buildArrowKey(Icons.keyboard_arrow_left,
-                    onTap: () => _onTap(onArrowLeft)),
-                _buildArrowKey(Icons.keyboard_arrow_right,
-                    onTap: () => _onTap(onArrowRight)),
-              ],
-            ),
-          ),
-          // Quick keys row
-          SizedBox(
-            height: 40,
-            child: Row(
-              children: [
-                _buildQuickKey('|', onTap: () => _onTap(() => onKeyPress('|'))),
-                _buildQuickKey('/', onTap: () => _onTap(() => onKeyPress('/'))),
-                _buildQuickKey('~', onTap: () => _onTap(() => onKeyPress('~'))),
-                _buildQuickKey('-', onTap: () => _onTap(() => onKeyPress('-'))),
-                _buildQuickKey('_', onTap: () => _onTap(() => onKeyPress('_'))),
-                _buildQuickKey('{', onTap: () => _onTap(() => onKeyPress('{'))),
-                _buildQuickKey('}', onTap: () => _onTap(() => onKeyPress('}'))),
-                _buildQuickKey('[', onTap: () => _onTap(() => onKeyPress('['))),
-                _buildQuickKey(']', onTap: () => _onTap(() => onKeyPress(']'))),
-                _buildQuickKey('\$',
-                    onTap: () => _onTap(() => onKeyPress('\$'))),
-              ],
+            height: 48,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: keys.length,
+              itemBuilder: (context, index) {
+                final key = keys[index];
+                return _buildKeyItem(key);
+              },
             ),
           ),
         ],
@@ -108,94 +94,84 @@ class ExtraKeysRow extends StatelessWidget {
     );
   }
 
-  Widget _buildKey(
-    String label, {
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-            decoration: BoxDecoration(
-              color: color ?? Colors.grey.shade800,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.grey.shade600, width: 0.5),
-            ),
-            child: Center(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+  Widget _buildKeyItem(String key) {
+    final isSpecial = [
+      'ESC',
+      'CTRL',
+      'ALT',
+      'TAB',
+      'UP',
+      'DOWN',
+      'LEFT',
+      'RIGHT'
+    ].contains(key.toUpperCase());
+
+    Color? backgroundColor;
+    Widget child;
+
+    switch (key.toUpperCase()) {
+      case 'ESC':
+        backgroundColor = Colors.orange.shade800.withValues(alpha: 0.3);
+        child = const Text('ESC', style: _textStyle);
+        break;
+      case 'CTRL':
+        backgroundColor = Colors.blue.shade800.withValues(alpha: 0.3);
+        child = const Text('CTRL', style: _textStyle);
+        break;
+      case 'ALT':
+        backgroundColor = Colors.purple.shade800.withValues(alpha: 0.3);
+        child = const Text('ALT', style: _textStyle);
+        break;
+      case 'TAB':
+        backgroundColor = Colors.teal.shade800.withValues(alpha: 0.3);
+        child = const Text('TAB', style: _textStyle);
+        break;
+      case 'UP':
+        child =
+            const Icon(Icons.keyboard_arrow_up, color: Colors.white, size: 20);
+        break;
+      case 'DOWN':
+        child = const Icon(Icons.keyboard_arrow_down,
+            color: Colors.white, size: 20);
+        break;
+      case 'LEFT':
+        child = const Icon(Icons.keyboard_arrow_left,
+            color: Colors.white, size: 20);
+        break;
+      case 'RIGHT':
+        child = const Icon(Icons.keyboard_arrow_right,
+            color: Colors.white, size: 20);
+        break;
+      default:
+        child = Text(key, style: _textStyle.copyWith(fontSize: 16));
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _handleKey(key),
+        child: Container(
+          width: isSpecial ? 64 : 44,
+          margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+          decoration: BoxDecoration(
+            color: backgroundColor ?? Colors.grey.shade800,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSpecial
+                  ? Colors.blue.shade400.withValues(alpha: 0.3)
+                  : Colors.grey.shade700,
+              width: 1,
             ),
           ),
+          child: Center(child: child),
         ),
       ),
     );
   }
 
-  Widget _buildArrowKey(IconData icon, {required VoidCallback onTap}) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade800,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.grey.shade600, width: 0.5),
-            ),
-            child: Center(
-              child: Icon(icon, color: Colors.white, size: 20),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickKey(String label, {required VoidCallback onTap}) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade800,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: Colors.grey.shade300,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDivider() {
-    return Container(
-      width: 1,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      color: Colors.grey.shade700,
-    );
-  }
+  static const _textStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+  );
 }
