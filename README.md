@@ -152,6 +152,12 @@ Choose from 8 beautiful pre-built terminal themes:
 
 ## Version History
 
+- **v1.0.7+7**: Initiated Phase 3: Productivity & Platform:
+  - Command Snippet Manager: Save and execute frequently used commands with one tap
+  - Terminal Search (Find): Powerful buffer search with real-time highlighting and navigation
+  - **Local Terminal Support**: Run local shell sessions without SSH on macOS, Linux, Windows, and Android
+  - Snippet UI: High-quality picker sheet with add/edit/delete capabilities
+  - Auto-execution: Support for automatically sending Enter after a snippet command
 - **v1.0.6+6**: Added Phase 2: File & Transfer Features:
   - SFTP File Browser: Full remote file management
   - File Upload/Download: Seamless file transfers between local and remote

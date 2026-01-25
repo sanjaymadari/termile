@@ -19,7 +19,10 @@ import '../widgets/terminal_view.dart';
 import '../widgets/terminal_settings_dialog.dart';
 import '../widgets/custom_app_bar.dart';
 import '../widgets/ssh_key_dropdown.dart';
+import '../widgets/snippet_picker_sheet.dart';
 import 'sftp_browser_screen.dart';
+import 'local_terminal_screen.dart';
+import '../services/local_terminal_service.dart';
 
 /// Main terminal screen with multi-session support and Termux-like features
 class TerminalScreen extends StatefulWidget {
@@ -373,6 +376,18 @@ class _TerminalScreenState extends State<TerminalScreen>
   }
 
   // ==================== SFTP Browser ====================
+
+  void _openSnippetPicker(SSHSessionModel session) {
+    SnippetPickerSheet.show(
+      context,
+      onSnippetSelected: (snippet) {
+        session.terminal.write(snippet.command);
+        if (snippet.autoExecute) {
+          session.terminal.write('\r');
+        }
+      },
+    );
+  }
 
   Future<void> _openSftpBrowser(SSHSessionModel session) async {
     if (session.client == null) {
@@ -892,6 +907,16 @@ class _TerminalScreenState extends State<TerminalScreen>
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 8),
+              // Command Snippets
+              IconButton(
+                icon: const Icon(Icons.receipt_long, size: 20),
+                onPressed: () => _openSnippetPicker(session),
+                tooltip: 'Snippets',
+                color: Colors.teal.shade300,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
               // Terminal actions
               IconButton(
                 icon: const Icon(Icons.delete_sweep_rounded, size: 20),
@@ -1077,6 +1102,11 @@ class _TerminalScreenState extends State<TerminalScreen>
             ),
           ],
         ),
+        // Local Terminal Button (desktop/Android only)
+        if (LocalTerminalService.isSupported) ...[
+          const SizedBox(height: 16),
+          _buildLocalTerminalCard(),
+        ],
         const SizedBox(height: 24),
         // Saved Profiles
         if (_savedProfiles.isNotEmpty) ...[
@@ -1207,6 +1237,72 @@ class _TerminalScreenState extends State<TerminalScreen>
           ],
         ),
         onTap: () => _loadProfile(profile),
+      ),
+    );
+  }
+
+  Widget _buildLocalTerminalCard() {
+    return Card(
+      color: Colors.grey.shade900,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const LocalTerminalScreen(),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.green.shade800.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.terminal,
+                  color: Colors.green.shade400,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Local Terminal',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade200,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Open a shell on ${LocalTerminalService.platformName}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.grey.shade600,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
