@@ -10,12 +10,14 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool isHomeScreen;
   final VoidCallback? onMenuPressed;
+  final List<Widget>? actions;
 
   const CustomAppBar({
     super.key,
     required this.title,
     this.onMenuPressed,
     this.isHomeScreen = false,
+    this.actions,
   });
 
   @override
@@ -36,6 +38,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       actions: [
+        // Custom actions passed from parent
+        if (actions != null) ...actions!,
+        // Menu button
         IconButton(
           icon: const Icon(Icons.menu, color: Colors.white),
           onPressed: onMenuPressed ??
