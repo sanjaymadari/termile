@@ -373,7 +373,7 @@ class _SSHTerminalState extends State<SSHTerminal> {
   Future<void> _importExistingKeys() async {
     try {
       // Pick private key
-      final privateResult = await FilePicker.platform.pickFiles(
+      final privateResult = await FilePicker.pickFile(
         dialogTitle: 'Select private key (id_rsa)',
         // type: FileType.custom,
         // allowedExtensions: ['pem', 'key', 'rsa'],
@@ -381,7 +381,7 @@ class _SSHTerminalState extends State<SSHTerminal> {
       if (privateResult == null) return;
 
       // Pick public key
-      // final publicResult = await FilePicker.platform.pickFiles(
+      // final publicResult = await FilePicker.pickFile(
       //   dialogTitle: 'Select public key (id_rsa.pub)',
       //   // type: FileType.custom,
       //   // allowedExtensions: ['pub'],
@@ -390,9 +390,9 @@ class _SSHTerminalState extends State<SSHTerminal> {
 
       // Read and validate keys
       final privateKey =
-          await File(privateResult.files.single.path!).readAsString();
+          await File(privateResult.path!).readAsString();
       // final publicKey =
-      //     await File(publicResult.files.single.path!).readAsString();
+      //     await File(publicResult.path!).readAsString();
 
       // Validate key formats
       if (!privateKey.contains('BEGIN') ||
