@@ -184,7 +184,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final String message =
         'Check out ${TermileConstants.appName} - Your ultimate SSH terminal companion!\n\n';
     final String playStoreLink =
-        'https://play.google.com/store/apps/details?id=com.termile.app';
+        'https://play.google.com/store/apps/details?id=com.varnastechsolutions.termile';
     final String shareText = '$message\n$playStoreLink';
 
     SharePlus.instance.share(
